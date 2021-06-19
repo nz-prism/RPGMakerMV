@@ -6,6 +6,21 @@
  http://opensource.org/licenses/mit-license.php
 ----------------------------------------------------------------------------
  Version
+ 1.17.1 2021/06/19 (nz_prismによるカスタマイズ) 1.17.0にピクチャ表示機能を追加
+ 1.17.0 2021/06/19 ウィンドウに角度を付けられる機能を追加
+ 1.16.0 2021/05/29 シーンごとにピクチャの表示優先度を変更できる機能を追加
+ 1.15.0 2021/05/22 コマンドリストの揃えを指定できる機能を追加
+ 1.14.4 2021/05/18 一覧ウィンドウを指定しなかった場合やnullで返した場合、単項目表示ウィンドウとして機能するよう修正
+ 1.14.3 2021/05/15 コマンド直接入力かつフォントサイズを変更した場合に項目の表示位置が不整合になる場合がある問題を修正
+ 1.14.2 2021/05/15 廃止された一部のプリセットを削除
+ 1.14.1 2021/05/15 初期表示時にアクターのフェイスグラフィックを表示しようとしたとき、うまく表示されない場合がある問題を修正
+ 1.14.0 2021/05/14 決定時のイベントで元ウィンドウの選択状態を解除できる機能を追加
+ 1.13.3 2021/05/12 ウィンドウリストで下にあるウィンドウを『一覧ウィンドウ』に指定するとエラーになる問題を修正
+ 1.13.2 2021/05/10 ウィンドウ開閉が無効な場合、初期状態で非表示のウィンドウが一瞬表示されてしまう問題を修正
+ 1.13.1 2021/05/09 ヘルプの誤記、分かりにくい表現の修正
+ 1.13.0 2021/05/07 戦闘画面からカスタムメニューを呼び出して戻ったときに戦闘状況が初期化されないよう修正
+ 1.12.2 2021/05/07 メインフォントや項目の高さを変更した場合に項目の表示位置が不整合になる場合がある問題を修正
+ 1.12.1 2021/05/07 パラメータのシーン20が正常に読み込まれていなかった問題を修正
  1.12.0 2021/05/06 カスタムメニュー画面の呼び出しをプラグインコマンド化
                    ウィンドウが重なったときに背後をマスキングしない設定を追加
                    ヘルプの表示揺れ等修正
@@ -276,12 +291,30 @@
  * @default []
  * @type struct<Window>[]
  *
+ * @param PicturePriority
+ * @text ピクチャ表示優先度
+ * @desc ピクチャのウィンドウに対する表示優先度を設定します。
+ * @default 0
+ * @type select
+ * @option 最前面
+ * @value 0
+ * @option メッセージウィンドウの下
+ * @value 1
+ * @option すべてのウィンドウの下
+ * @value 2
+ * 
  * @param Panorama
  * @text パノラマ画像
  * @desc 背景情報を指定します。
  * @default
  * @type struct<Panorama>
  *
+ * @param Picture
+ * @text ピクチャ
+ * @desc ピクチャ情報を指定します。
+ * @default
+ * @type struct<Picture>
+ * 
  * @param UsePageButtons
  * @text ページボタンの使用
  * @desc 有効にした場合、ページボタンを表示します。
@@ -313,11 +346,38 @@
  * @type number
  */
 
+/*~struct~Picture:
+ *
+ * @param UseActorPicture
+ * @text 立ち絵を使用
+ * @desc 有効にした場合、メニューアクターの現在の立ち絵設定が使用されます。
+ * @type boolean
+ * @default true
+ *
+ * @param Image
+ * @text 画像ファイル
+ * @desc 立ち絵を使用しない場合に表示する画像ファイルを指定します。指定しなかった場合、画像は表示されません。
+ * @dir img/pictures
+ * @type file
+ * 
+ * @param X
+ * @text X座標
+ * @desc ピクチャのX座標です。
+ * @default 0
+ * @type number
+ *
+ * @param Y
+ * @text Y座標
+ * @desc ピクチャのY座標です。
+ * @default 0
+ * @type number
+ */
+
 /*~struct~Window:
  *
  * @param Id
  * @text ウィンドウ識別子
- * @desc ウィンドウの識別子です。リスト内で他の識別子と重複しない文字列を指定してください。
+ * @desc ウィンドウの識別子(ID)です。リスト内で他の識別子と重複しない文字列を指定してください。
  * @default window1
  * @type string
  *
@@ -370,6 +430,12 @@
  * @default 0
  * @type number
  *
+ * @param Rotation
+ * @text 回転角度
+ * @desc ウィンドウの角度です。度数法(0-360)で指定します。
+ * @default 0
+ * @type number
+ *
  * @param ItemHeight
  * @text 項目の高さ
  * @desc 1項目あたりの高さです。0を指定した場合はウィンドウのデフォルト値が使用されます。
@@ -387,16 +453,17 @@
  *
  * @param ListWindowId
  * @parent DataScript
- * @text 一覧ウィンドウID
+ * @text 一覧ウィンドウ識別子
  * @desc 別の一覧ウィンドウの詳細情報を表示するウィンドウの場合、一覧のウィンドウ識別子を指定します。
  * @default
  *
  * @param ListScript
  * @parent DataScript
  * @text 一覧取得スクリプト
- * @desc 項目の一覧を返すスクリプトです。プリセットから選ぶこともできます。詳細ウィンドウ識別子を指定した場合は無効です。
+ * @desc 項目の一覧を返すスクリプトです。プリセットから選ぶこともできます。『一覧ウィンドウ識別子』を指定した場合は無効です。
  * @default
  * @type combo
+ * @option null; // なし(単項目表示ウィンドウ用)
  * @option $gameParty.members(); // パーティメンバー
  * @option $gameParty.battleMembers(); // 戦闘メンバー
  * @option $gameParty.reserveMembers(); // リザーブメンバー
@@ -630,6 +697,18 @@
  * @default value01
  * @type string
  *
+ * @param Align
+ * @text 項目の揃え
+ * @desc 項目の揃えです。
+ * @default 0
+ * @type select
+ * @option 左揃え
+ * @value 0
+ * @option 中央揃え
+ * @value 1
+ * @option 右揃え
+ * @value 2
+ * 
  * @param VisibleSwitchId
  * @text 表示スイッチID
  * @desc 指定したスイッチがONの場合のみ画面に表示されます。
@@ -638,7 +717,7 @@
  *
  * @param VisibleScript
  * @text 表示スクリプト
- * @desc 指定したスクリプトがtrueの場合のみ画面に表示されます。変数[item]で『一覧ウィンドウID』の選択項目が参照できます。
+ * @desc 指定したスクリプトがtrueの場合のみ画面に表示されます。変数[item]で『一覧ウィンドウ識別子』の選択項目が参照できます。
  * @default
  * @type combo
  * @option item.meta['value']; // メモ欄に<value>の記述がある
@@ -663,7 +742,7 @@
  *
  * @param IsEnableScript
  * @text 選択可能スクリプト
- * @desc 項目を選択可能かどうかを判定するスクリプトです。変数[item]で『一覧ウィンドウID』の選択項目が参照できます。
+ * @desc 項目を選択可能かどうかを判定するスクリプトです。変数[item]で『一覧ウィンドウ識別子』の選択項目が参照できます。
  * @default
  * @type combo
  * @option item.meta['value']; // メモ欄に<value>の記述がある
@@ -708,7 +787,7 @@
  * @type string
  *
  * @param FocusWindowIndex
- * @text ウィンドウインデックス
+ * @text カーソルインデックス
  * @desc 対象のイベントが発生したときにフォーカスされるウィンドウのカーソルインデックスです。-1を指定した場合、操作しません。
  * @default -1
  * @type number
@@ -731,6 +810,12 @@
  * @text スイッチ
  * @desc 対象のイベントが発生したときにONになるスイッチです。
  * @type switch
+ *
+ * @param Deselect
+ * @text 元ウィンドウ選択解除
+ * @desc 対象のイベントが発生したときに元々フォーカスされていたウィンドウの選択状態を解除します。
+ * @default false
+ * @type boolean
  */
 
 (() => {
@@ -739,7 +824,7 @@
     const param = PluginManagerEx.createParameter(script);
 
     param.SceneList = [];
-    for (let i = 1; i < 20; i++) {
+    for (let i = 1; i < 21; i++) {
         if (param[`Scene${i}`]) {
             param.SceneList.push(param[`Scene${i}`]);
         }
@@ -760,11 +845,68 @@
         }
     };
 
+    const _Scene_Battle_start = Scene_Battle.prototype.start;
+    Scene_Battle.prototype.start = function() {
+        if (SceneManager.isCalledCustomMenuFromBattle()) {
+            SceneManager.resetCalledCustomMenuFromBattle();
+            Scene_Base.prototype.start.call(this);
+        } else {
+            _Scene_Battle_start.apply(this);
+        }
+    };
+
+    const _Scene_Battle_terminate = Scene_Battle.prototype.terminate;
+    Scene_Battle.prototype.terminate = function() {
+        if (SceneManager.isCalledCustomMenuFromBattle()) {
+            Scene_Base.prototype.terminate.call(this);
+        } else {
+            _Scene_Battle_terminate.apply(this, arguments);
+        }
+    };
+
+    const _Scene_Battle_stop = Scene_Battle.prototype.stop;
+    Scene_Battle.prototype.stop = function() {
+        if (SceneManager.isCalledCustomMenuFromBattle()) {
+            Scene_Base.prototype.stop.call(this);
+        } else {
+            _Scene_Battle_stop.apply(this, arguments);
+        }
+    };
+
+    const _Sprite_Actor_initMembers = Sprite_Actor.prototype.initMembers;
+    Sprite_Actor.prototype.initMembers = function() {
+        _Sprite_Actor_initMembers.apply(this, arguments);
+        if (SceneManager.isCalledCustomMenuFromBattle()) {
+            this._alreadyEntry = true;
+        }
+    }
+
+    const _Sprite_Actor_startEntryMotion = Sprite_Actor.prototype.startEntryMotion;
+    Sprite_Actor.prototype.startEntryMotion = function() {
+        if (this._alreadyEntry) {
+            this.startMove(0, 0, 0);
+            this._alreadyEntry = false;
+        } else {
+            _Sprite_Actor_startEntryMotion.apply(this, arguments);
+        }
+    };
+
     SceneManager.callCustomMenu = function (sceneId) {
         if (!this.findSceneData(sceneId)) {
             throw new Error(`Scene data '${sceneId}' is not found`);
         }
+        if (this._scene instanceof Scene_Battle) {
+            this._callCustomMenuFromBattle = true;
+        }
         this.push(this.createCustomMenuClass(sceneId));
+    };
+
+    SceneManager.isCalledCustomMenuFromBattle = function() {
+        return this._callCustomMenuFromBattle;
+    };
+
+    SceneManager.resetCalledCustomMenuFromBattle = function() {
+        this._callCustomMenuFromBattle = false;
     };
 
     const _SceneManager_goto = SceneManager.goto;
@@ -850,6 +992,7 @@
 
         start() {
             super.start();
+            this.refresh();
             this.fireEvent(this._customData.InitialEvent);
         }
 
@@ -860,7 +1003,8 @@
 
         stop() {
             super.stop();
-            if (SceneManager.isNextScene(Scene_Battle)) {
+            if (SceneManager.isNextScene(Scene_Battle) &&
+                !SceneManager.isPreviousScene(Scene_Battle)) {
                 this.launchBattle();
             }
         }
@@ -884,7 +1028,9 @@
             super.createBackground();
             this._panorama = new TilingSprite();
             this._panorama.move(0, 0, Graphics.width, Graphics.height);
+            this._pictureSprite = new Sprite;
             this.addChild(this._panorama);
+            this._panorama.addChild(this._pictureSprite);
         }
 
         createAllObjects() {
@@ -897,13 +1043,21 @@
             if (this._customData.Panorama) {
                 this.setPanoramaBitmap();
             }
+            if (this._customData.Picture) {
+                this.setupPictureSprite();
+            }
         }
 
         createCustomMenuWindowList() {
             this._customWindowMap = new Map();
             const list = this._customData.WindowList;
             list.forEach(windowData => this.createCustomMenuWindow(windowData));
+            this.refresh();
             list.forEach(windowData => this.setPlacement(windowData));
+        }
+
+        refresh() {
+            this._customWindowMap.forEach(win => win.refresh());
         }
 
         createCustomMenuWindow(data) {
@@ -919,7 +1073,9 @@
                     if (data.Id === this.findFirstWindowId() && prevActive === this._activeWindowId) {
                         // ウィンドウが一番上にあり、かつキャンセルボタンにpopSceneが設定されている場合二重に戻ってしまう
                         // プラグインパラメータPopCancelをオフにすることで無効化できるようにする
-                        if (data.PopCancel) this.popScene();
+                        if (data.PopCancel === undefined || data.PopCancel) {
+                            this.popScene();
+                        }
                     }
                     win.select(-1);
                 });
@@ -941,6 +1097,15 @@
         setPanoramaBitmap() {
             const panorama = this._customData.Panorama;
             this._panorama.bitmap = ImageManager.loadParallax(panorama.Image);
+        }
+
+        setupPictureSprite() {
+            const sprite = this._pictureSprite;
+            const pictureData = this._customData.Picture;
+            const pictureName = pictureData.UseActorPicture ? this._actor.pictureName() : pictureData.Image;
+            if (pictureName) sprite.bitmap = ImageManager.loadPicture(pictureName);
+            sprite.x = pictureData.X;
+            sprite.y = pictureData.Y;
         }
 
         setPlacement(data) {
@@ -1014,7 +1179,7 @@
             });
         };
 
-        fireEvent(event, moveFocus = true) {
+        fireEvent(event, moveWindowFocus = true) {
             if (event.SwitchId) {
                 $gameSwitches.setValue(event.SwitchId, true);
             }
@@ -1028,13 +1193,17 @@
             if (!this._active) {
                 return;
             }
-            if (moveFocus) {
+            if (moveWindowFocus) {
                 if (event.FocusWindowId) {
                     this.changeWindowFocus(event.FocusWindowId, event.FocusWindowIndex);
                 } else if (this._previousActiveWindowId && this._activeWindowId !== this.findFirstWindowId()) {
                     this.changeWindowFocus(this._previousActiveWindowId, -1);
                 } else {
                     this.changeWindowFocus(this._activeWindowId || this.findFirstWindowId(), -1);
+                }
+                if (event.Deselect) {
+                    const previousWindow = this._customWindowMap.get(this._previousActiveWindowId);
+                    previousWindow.deselect();
                 }
             }
             if (event.CommandId) {
@@ -1084,6 +1253,8 @@
 
         // 競合したら直す
         createAllMessageWindow() {
+            this._messageWindowAdd = true;
+            this.createMessageWindowLayer();
             Scene_Message.prototype.createMessageWindow.call(this);
             Scene_Message.prototype.createScrollTextWindow.call(this);
             Scene_Message.prototype.createGoldWindow.call(this);
@@ -1092,6 +1263,22 @@
             Scene_Message.prototype.createNumberInputWindow.call(this);
             Scene_Message.prototype.createEventItemWindow.call(this);
             Scene_Message.prototype.associateWindows.call(this);
+            this._messageWindowAdd = false;
+        }
+
+        createMessageWindowLayer() {
+            this._messageWindowLayer = new WindowLayer();
+            this._messageWindowLayer.x = (Graphics.width - Graphics.boxWidth) / 2;
+            this._messageWindowLayer.y = (Graphics.height - Graphics.boxHeight) / 2;
+            this.addChild(this._messageWindowLayer);
+        }
+
+        addWindow(window) {
+            if (this._messageWindowAdd) {
+                this._messageWindowLayer.addChild(window);
+            } else {
+                super.addWindow(window);
+            }
         }
 
         messageWindowRect() {
@@ -1112,8 +1299,24 @@
 
         createSpriteset() {
             this._spriteset = new Spriteset_Menu();
+            const index = this.findSpritesetIndex();
+            if (index !== null) {
+                this.addChildAt(this._spriteset, index);
+            } else {
             this.addChild(this._spriteset);
         }
+    }
+
+    findSpritesetIndex() {
+        switch (this._customData.PicturePriority) {
+            case 2:
+                return this.getChildIndex(this._windowLayer);
+            case 1:
+                return this.getChildIndex(this._messageWindowLayer);
+            default:
+                return null;
+        }
+    }
 
         refreshActor() {
             this._customWindowMap.forEach(win => {
@@ -1122,6 +1325,9 @@
         }
 
         onActorChange() {
+            const sprite = this._pictureSprite;
+            const pictureData = this._customData.Picture;
+            if (sprite && pictureData?.UseActorPicture) sprite.bitmap = ImageManager.loadPicture(this._actor.pictureName());
             this.refreshActor();
             this.changeWindowFocus(this._activeWindowId, -1);
             // アクター切り替え時にカーソルSEを演奏する
@@ -1166,7 +1372,7 @@
             if (data.OverlapOther) {
                 this._isWindow = false;
             }
-            if (this.isShowOpen()) {
+            if (this.isShowOpen() || !this.isValid()) {
                 this.openness = 0;
             }
             if (this.height === 0) {
@@ -1178,6 +1384,24 @@
             this.updateOpenClose();
             super.update();
             this.updateIndexVariable();
+            this.updateRotation();
+        }
+
+        updateRotation() {
+            if (this._data.Rotation) {
+                this.rotation = this._data.Rotation * Math.PI / 180;
+            }
+        }
+
+        _updateFilterArea() {
+            super._updateFilterArea();
+            if (this.rotation !== 0) {
+                const filterArea = this._clientArea.filterArea;
+                filterArea.x = 0;
+                filterArea.y = 0;
+                filterArea.width = Graphics.width;
+                filterArea.height = Graphics.height;
+            }
         }
 
         select(index) {
@@ -1197,6 +1421,11 @@
                     win.refresh();
                 }
             })
+        }
+
+        calcTextHeight(textState) {
+            const height = super.calcTextHeight(textState);
+            return height + $gameSystem.mainFontSize() - this.contents.fontSize;
         }
 
         updateOpenClose() {
@@ -1243,6 +1472,11 @@
 
         isShowOpen() {
             return this._data.ShowOpenAnimation;
+        }
+
+        lineHeight() {
+            const fontSize = this._data.FontSize;
+            return fontSize ? this._data.FontSize + 8 : super.lineHeight();
         }
 
         itemHeight() {
@@ -1338,9 +1572,6 @@
         drawItem(index) {
             this._drawingIndex = index;
             const item = this.getItem(index);
-            if (!item) {
-                return;
-            }
             const rect = this.findItemRect(index);
             this.changePaintOpacity(this.isEnabled(index));
             if (this.isMasking(index)) {
@@ -1352,7 +1583,9 @@
         }
 
         findItemRect(index) {
-            return this.itemRectWithPadding(index);
+            const rect = this.itemRectWithPadding(index);
+            rect.y += this.rowSpacing() / 2;
+            return rect;
         }
 
         drawItemSub(item, rect, index) {
@@ -1449,7 +1682,7 @@
         }
 
         drawItemBackground(index) {
-            if (this.maxItems() > 1) {
+            if (!this._data.ListWindowId && this._list[0] !== ' ') {
                 super.drawItemBackground(index);
             }
         }
@@ -1466,6 +1699,12 @@
         }
 
         drawItemSub(item, rect, index) {
+            const width = this.textSizeEx(item.Text).width;
+            if (item.Align === 1) {
+                rect.x += (rect.width - width) / 2;
+            } else if (item.Align === 2) {
+                rect.x += rect.width - width;
+            }
             this.drawTextEx(item.Text, rect.x, rect.y, rect.width);
         }
 
@@ -1530,7 +1769,7 @@
                 list = [];
             }
             if (!Array.isArray(list)) {
-                list = [list];
+                list = list ? [list] : [' '];
             }
             if (this._data.FilterScript && !this.isUseMasking()) {
                 list = list.filter(item => this.isVisible(item, v, s));
