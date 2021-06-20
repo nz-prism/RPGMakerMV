@@ -1028,8 +1028,10 @@
             super.createBackground();
             this._panorama = new TilingSprite();
             this._panorama.move(0, 0, Graphics.width, Graphics.height);
+            // ActorPictures.js用追加処理
             this._pictureSprite = new Sprite;
             this.addChild(this._panorama);
+            // ActorPictures.js用追加処理
             this._panorama.addChild(this._pictureSprite);
         }
 
@@ -1043,6 +1045,7 @@
             if (this._customData.Panorama) {
                 this.setPanoramaBitmap();
             }
+            // ActorPictures.js用追加処理
             if (this._customData.Picture) {
                 this.setupPictureSprite();
             }
@@ -1089,7 +1092,6 @@
                 win.setHandler('pagedown', this.nextActor.bind(this));
                 win.setHandler('pageup', this.previousActor.bind(this));
             }
-            win.refresh();
             this.addWindow(win);
             this._customWindowMap.set(data.Id, win);
         }
@@ -1098,7 +1100,7 @@
             const panorama = this._customData.Panorama;
             this._panorama.bitmap = ImageManager.loadParallax(panorama.Image);
         }
-
+        // ActorPictures.js用追加処理
         setupPictureSprite() {
             const sprite = this._pictureSprite;
             const pictureData = this._customData.Picture;
@@ -1325,6 +1327,7 @@
         }
 
         onActorChange() {
+            // ActorPictures.js用追加処理
             const sprite = this._pictureSprite;
             const pictureData = this._customData.Picture;
             if (sprite && pictureData?.UseActorPicture) sprite.bitmap = ImageManager.loadPicture(this._actor.pictureName());
@@ -1755,6 +1758,11 @@
 
     class Window_CustomMenuDataList extends Window_CustomMenu {
         makeCommandList() {
+            // パラメータにより正常に動作しないケースがあったため旧版処理を復旧
+            // if (this._data.ListWindowId) {
+            //     const data = this.findListWindowItem();
+            //     return data ? [data] : [];
+            // }
             const listWindowItem = this.findListWindowItem();
             if (listWindowItem) {
                 return [listWindowItem];
