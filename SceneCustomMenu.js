@@ -6,7 +6,8 @@
  http://opensource.org/licenses/mit-license.php
 ----------------------------------------------------------------------------
  Version
- 1.17.1 2021/06/19 (nz_prismによるカスタマイズ) 1.17.0にピクチャ表示機能を追加
+ 1.17.0b 2021/07/06 (nz_prismによるブランチ) 1.17.0aの立ち絵表示にアニメーション機能を追加
+ 1.17.0a 2021/06/19 (nz_prismによるブランチ) 1.17.0に立ち絵表示機能を追加
  1.17.0 2021/06/19 ウィンドウに角度を付けられる機能を追加
  1.16.0 2021/05/29 シーンごとにピクチャの表示優先度を変更できる機能を追加
  1.15.0 2021/05/22 コマンドリストの揃えを指定できる機能を追加
@@ -310,8 +311,8 @@
  * @type struct<Panorama>
  *
  * @param Picture
- * @text ピクチャ
- * @desc ピクチャ情報を指定します。
+ * @text 立ち絵
+ * @desc 立ち絵情報を指定します。
  * @default
  * @type struct<Picture>
  * 
@@ -362,13 +363,13 @@
  * 
  * @param X
  * @text X座標
- * @desc ピクチャのX座標です。
+ * @desc 立ち絵のX座標です。
  * @default 0
  * @type number
  *
  * @param Y
  * @text Y座標
- * @desc ピクチャのY座標です。
+ * @desc 立ち絵のY座標です。
  * @default 0
  * @type number
  */
@@ -1029,7 +1030,7 @@
             this._panorama = new TilingSprite();
             this._panorama.move(0, 0, Graphics.width, Graphics.height);
             // ActorPictures.js用追加処理
-            this._pictureSprite = new Sprite;
+            this._pictureSprite = new Sprite_MenuPicture;
             this.addChild(this._panorama);
             // ActorPictures.js用追加処理
             this._panorama.addChild(this._pictureSprite);
@@ -1105,9 +1106,7 @@
             const sprite = this._pictureSprite;
             const pictureData = this._customData.Picture;
             const pictureName = pictureData.UseActorPicture ? this._actor.pictureName() : pictureData.Image;
-            if (pictureName) sprite.bitmap = ImageManager.loadPicture(pictureName);
-            sprite.x = pictureData.X;
-            sprite.y = pictureData.Y;
+            if (pictureName) sprite.changePicture(pictureName, pictureData.X, pictureData.Y);
         }
 
         setPlacement(data) {
@@ -1330,7 +1329,7 @@
             // ActorPictures.js用追加処理
             const sprite = this._pictureSprite;
             const pictureData = this._customData.Picture;
-            if (sprite && pictureData?.UseActorPicture) sprite.bitmap = ImageManager.loadPicture(this._actor.pictureName());
+            if (sprite && pictureData?.UseActorPicture) sprite.changePicture(this._actor.pictureName(), pictureData.X, pictureData.Y);
             this.refreshActor();
             this.changeWindowFocus(this._activeWindowId, -1);
             // アクター切り替え時にカーソルSEを演奏する
@@ -1884,4 +1883,74 @@
         updateToneChanger() {
         };
     }
+
+    // ActorPictures.js用追加処理
+    class Sprite_MenuPicture extends Sprite {
+        update() {
+            super.update();
+            this.updateFrame();
+            this.updateAnimation();
+        }
+    
+        updateFrame() {
+            const bitmap = this.bitmap;
+            if (bitmap) {
+                let pw, px;
+                if (this._hasAnimation) {
+                    const numPattern = this._animationNumPattern;
+                    const pattern = this._pattern < numPattern ? this._pattern : 0;
+                    pw = bitmap.width / numPattern;
+                    px = pw * pattern;
+                } else {
+                    pw = bitmap.width;
+                    px = 0;
+                }
+                this.setFrame(px, 0, pw, bitmap.height);
+            }
+        }
+    
+        updateAnimation() {
+            if (this._hasAnimation) {
+                this._animationCount += this._animationPatternCounts[this._pattern];
+                if (this._animationCount >= this._animationRepeatDurations[this._animationRepeatIndex]) {
+                    this._pattern = (this._pattern + 1) % this._animationNumPattern;
+                    this._animationCount = 0;
+                    if (this._pattern === 0) {
+                        this._animationRepeatIndex++;
+                        if (this._animationRepeatIndex >= this._animationNumRepeat) this._animationRepeatIndex = 0;
+                    }
+                }
+            }
+        }
+        
+        changePicture(pictureName, x, y) {
+            const bitmap = ImageManager.loadPicture(pictureName);
+            const width = bitmap.width;
+            const centerX = ImageManager.centerX(pictureName);
+            const cx = (centerX > 0) ? centerX : (width / 2);
+            this.bitmap = bitmap;
+            this.anchor.x = cx / width;
+            this.x = x;
+            this.y = y - ImageManager.offsetY(pictureName);
+            this.setupAnimation(pictureName);
+            this.updateFrame();
+            this.updateAnimation();
+        }
+    
+        setupAnimation(pictureName) {
+            if (ImageManager.hasPictureAnimation(pictureName)) {
+                this._hasAnimation = true;
+                this._pattern = 0;
+                this._animationCount = 0;
+                this._animationRepeatIndex = 0;
+                this._animationNumPattern = ImageManager.animationNumPattern(pictureName);
+                this._animationPatternCounts = ImageManager.animationPatternCounts(pictureName);
+                this._animationNumRepeat = ImageManager.animationNumRepeat(pictureName);
+                this._animationRepeatDurations = ImageManager.animationRepeatDurations(pictureName);
+            } else {
+                this._hasAnimation = false;
+            }
+        }
+    }
+    
 })();
