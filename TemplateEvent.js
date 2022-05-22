@@ -6,6 +6,13 @@
  http://opensource.org/licenses/mit-license.php
 ----------------------------------------------------------------------------
  Version
+ 1.1.4 2022/01/26 ヘルプの誤記を修正
+ 1.1.3 2021/10/05 1.1.2の修正で「固有イベント呼び出し」をページ番号[0]で呼び出したときエラーになる問題を修正
+ 1.1.2 2021/10/05 「マップイベント呼び出し」でページ番号を[0]で呼び出したとき、実行中のページではなく1ページが呼ばれてしまう問題を修正
+ 1.1.1 2021/08/11 「マップイベント呼び出し」のコマンドでイベント名を指定して呼び出せるよう修正
+ 1.1.0 2021/07/23 セルフ変数のキーに文字列を指定できるよう修正
+ 1.0.7 2021/05/29 1.0.6の修正で正常に機能しなくなっていた問題を修正
+ 1.0.6 2021/05/22 RandomDungeon.jsと共存できるよう修正
  1.0.5 2021/03/15 「セルフ変数の一括設定」のコマンドが正しく設定できていなかった問題を修正
  1.0.4 2020/12/08 メモ欄の統合が正常に機能しない不具合を修正
  1.0.3 2020/11/30 英訳版ヘルプをご提供いただいて追加
@@ -84,9 +91,8 @@
  *
  * @arg eventId
  * @text Event ID
- * @desc The ID of the event to be called. A value of 0 will target the event being executed.
+ * @desc The ID (or Name) of the event to be called. A value of 0 will target the event being executed.
  * @default 0
- * @type number
  *
  * @command SET_SELF_VARIABLE
  * @text Self Variable Manipulation
@@ -135,7 +141,6 @@
  * @text End Index
  * @desc The end index of the self variable to be operated on.
  * @default 1
- * @type number
  *
  * @arg type
  * @text Type of Operation
@@ -300,6 +305,8 @@
 /*:ja
  * @target MZ
  * @base PluginCommonBase
+ * @orderAfter PluginCommonBase
+ * @orderAfter RandomDungeon
  * @plugindesc テンプレートイベントプラグイン
  * @author トリアコンタン
  * @url https://github.com/triacontane/RPGMakerMV/tree/mz_master/TemplateEvent.js
@@ -361,20 +368,18 @@
  * @type number
  *
  * @arg eventId
- * @text イベントID
- * @desc 呼び出すイベントのIDです。0を指定すると実行中のイベントが対象になります。
+ * @text イベントID(もしくは名称)
+ * @desc 呼び出すイベントのIDもしくはイベント名です。0を指定すると実行中のイベントが対象になります。
  * @default 0
- * @type number
  *
  * @command SET_SELF_VARIABLE
  * @text セルフ変数の操作
  * @desc セルフ変数を操作します。
  *
  * @arg index
- * @text インデックス
- * @desc 操作対象のセルフ変数のインデックスです。
+ * @text キー
+ * @desc 操作対象のセルフ変数のキーです。数値や文字列を指定できます。文字列を指定した場合、大文字小文字は区別されます。
  * @default 1
- * @type number
  *
  * @arg type
  * @text 操作種別
@@ -405,13 +410,13 @@
  *
  * @arg startIndex
  * @text 開始インデックス
- * @desc 操作対象のセルフ変数の開始インデックスです。
+ * @desc 操作対象のセルフ変数の開始インデックスです。数値のみ指定できます。
  * @default 1
  * @type number
  *
  * @arg endIndex
  * @text 終了インデックス
- * @desc 操作対象のセルフ変数の終了インデックスです。
+ * @desc 操作対象のセルフ変数の終了インデックスです。数値のみ指定できます。
  * @default 1
  * @type number
  *
@@ -498,7 +503,7 @@
  * 以下のスクリプトで指定したインデックスのセルフ変数が取得できます。
  * this.getSelfVariable(n)
  * 指定例：
- * this.getSelfVariable(1) !== 0 # セルフ変数[1]が3以上の場合
+ * this.getSelfVariable(1) !== 0 # セルフ変数[1]が0と異なる場合
  *
  * 本プラグインのすべてのプラグインコマンドで制御文字\sv[n]を使用できます。
  *
@@ -672,7 +677,7 @@ let $dataTemplateEvents = null;
         if (!key) {
             return text;
         }
-        text = text.replace(/\x1bSV\[(\d+)]/gi, (_, p1) => {
+        text = text.replace(/\x1bSV\[(\w+)]/gi, (_, p1) => {
             key[2] = p1;
             return $gameSelfSwitches.getVariableValue(key).toString();
         });
@@ -704,6 +709,9 @@ let $dataTemplateEvents = null;
     Game_Interpreter.prototype.callOriginEvent = function(pageIndex) {
         const event = $gameMap.event(this._eventId);
         if (event && event.hasTemplate()) {
+            if (pageIndex === 0) {
+                pageIndex = event.getPageIndex() + 1;
+            }
             this.setupAnotherList(null, event.getOriginalPages(), pageIndex);
         }
     };
@@ -711,6 +719,9 @@ let $dataTemplateEvents = null;
     Game_Interpreter.prototype.callMapEventById = function(pageIndex, eventId) {
         const event = $gameMap.event(eventId);
         if (event) {
+            if (pageIndex === 0) {
+                pageIndex = event.getPageIndex() + 1;
+            }
             this.setupAnotherList(param.KeepEventId ? null : eventId, event.getPages(), pageIndex);
         }
     };
@@ -718,12 +729,15 @@ let $dataTemplateEvents = null;
     Game_Interpreter.prototype.callMapEventByName = function(pageIndex, eventName) {
         const event = searchDataItem($dataMap.events, 'name', eventName);
         if (event) {
-            this.setupAnotherList(param.KeepEventId ? null : event.id, event.pages, pageIndex);
+            this.callMapEventById(pageIndex, event.id);
         }
     };
 
     Game_Interpreter.prototype.setupAnotherList = function(eventId, pages, pageIndex) {
-        const page = pages[pageIndex - 1 || this._pageIndex] || pages[0];
+        const page = pages[pageIndex - 1];
+        if (!page) {
+            return;
+        }
         if (!eventId) eventId = this.isOnCurrentMap() ? this._eventId : 0;
         this.setupChild(page.list, eventId);
     };
@@ -815,19 +829,32 @@ let $dataTemplateEvents = null;
         return eventId > 0 ? [$gameMap.mapId(), eventId, index] : null;
     };
 
+    const _Game_Map_setup = Game_Map.prototype.setup;
+    Game_Map.prototype.setup = function(mapId) {
+        this.initDynamicEvents();
+        _Game_Map_setup.apply(this, arguments);
+    };
+
     //=============================================================================
     // Game_Event
     //  テンプレートイベントマップをロードしてグローバル変数に保持します。
     //=============================================================================
     const _Game_Event_initialize    = Game_Event.prototype.initialize;
     Game_Event.prototype.initialize = function(mapId, eventId) {
-        const event = $dataMap.events[eventId];
+        if (arguments.length > 2) {
+            this._eventByRandomDungeon = arguments[2];
+        }
+        const event = this.getDataEvent(eventId);
         this.setTemplate(event);
         _Game_Event_initialize.apply(this, arguments);
         if (this.hasTemplate()) {
             this.setPosition(event.x, event.y);
             this.refreshBushDepth();
         }
+    };
+
+    Game_Event.prototype.getDataEvent = function(eventId) {
+        return this._eventByRandomDungeon || $dataMap.events[eventId];
     };
 
     const _Game_Event_setupPageSettings    = Game_Event.prototype.setupPageSettings;
@@ -950,7 +977,7 @@ let $dataTemplateEvents = null;
 
     Game_Event.prototype.getOriginalPages = function() {
         const eventId = PluginManagerEx.isExistPlugin('SAN_MapGenerator') ? this._dataEventId : this._eventId;
-        return $dataMap.events[eventId].pages;
+        return this.getDataEvent(eventId).pages;
     };
 
     Game_Event.prototype.getOriginalPage = function() {
@@ -959,6 +986,10 @@ let $dataTemplateEvents = null;
 
     Game_Event.prototype.getPages = function() {
         return this.event().pages;
+    };
+
+    Game_Event.prototype.getPageIndex = function() {
+        return this._pageIndex;
     };
 
     const _Game_Event_meetsConditions    = Game_Event.prototype.meetsConditions;
@@ -1078,4 +1109,3 @@ let $dataTemplateEvents = null;
         return _Window_Base_convertEscapeCharacters.apply(this, arguments);
     };
 })();
-
